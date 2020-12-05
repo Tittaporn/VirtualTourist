@@ -1,14 +1,17 @@
 //
-//  PhotoAblumVC.swift
+//  PhotoAlbumVC.swift
 //  VirtualTourist
 //
 //  Created by Lee McCormick on 12/3/20.
 //
 
 import UIKit
+import MapKit
 
-class PhotoAblumVC: UIViewController {
+class PhotoAlbumVC: UIViewController {
 
+    var location: CLLocationDegrees = 0.0
+        
     override func viewDidLoad() {
         super.viewDidLoad()
 

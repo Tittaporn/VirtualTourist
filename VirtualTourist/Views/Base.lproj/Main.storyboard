@@ -36,7 +36,8 @@
                     </view>
                     <navigationItem key="navigationItem" title="Travel Location Map" id="Qe8-8C-vJP"/>
                     <connections>
-                        <segue destination="UvK-ZX-Ige" kind="show" id="hFL-Xh-TcH"/>
+                        <outlet property="mapView" destination="nIW-FF-4Hg" id="hKM-iL-uvq"/>
+                        <segue destination="UvK-ZX-Ige" kind="show" identifier="GoToPhotoAlbum" id="hFL-Xh-TcH"/>
                     </connections>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="dkx-z0-nzr" sceneMemberID="firstResponder"/>
@@ -62,7 +63,7 @@
         <!--Photo Virtual Tourist-->
         <scene sceneID="Wl1-2n-vy8">
             <objects>
-                <viewController id="UvK-ZX-Ige" customClass="PhotoAblumVC" customModule="VirtualTourist" customModuleProvider="target" sceneMemberID="viewController">
+                <viewController id="UvK-ZX-Ige" customClass="PhotoAlbumVC" customModule="VirtualTourist" customModuleProvider="target" sceneMemberID="viewController">
                     <view key="view" contentMode="scaleToFill" id="cKM-8Q-9Y2">
                         <rect key="frame" x="0.0" y="0.0" width="414" height="896"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
@@ -100,6 +101,17 @@
                                         <collectionViewCellContentView key="contentView" opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center" insetsLayoutMarginsFromSafeArea="NO" id="vfa-Rg-pb3">
                                             <rect key="frame" x="0.0" y="0.0" width="128" height="128"/>
                                             <autoresizingMask key="autoresizingMask"/>
+                                            <subviews>
+                                                <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" translatesAutoresizingMaskIntoConstraints="NO" id="Tsp-Ih-any">
+                                                    <rect key="frame" x="0.0" y="0.0" width="128" height="128"/>
+                                                </imageView>
+                                            </subviews>
+                                            <constraints>
+                                                <constraint firstItem="Tsp-Ih-any" firstAttribute="leading" secondItem="vfa-Rg-pb3" secondAttribute="leading" id="Tj5-Rf-vWw"/>
+                                                <constraint firstItem="Tsp-Ih-any" firstAttribute="centerY" secondItem="vfa-Rg-pb3" secondAttribute="centerY" id="YqY-g0-z1Z"/>
+                                                <constraint firstAttribute="trailing" secondItem="Tsp-Ih-any" secondAttribute="trailing" id="p9J-0a-mWA"/>
+                                                <constraint firstItem="Tsp-Ih-any" firstAttribute="top" secondItem="vfa-Rg-pb3" secondAttribute="top" id="q0y-Ix-GJB"/>
+                                            </constraints>
                                         </collectionViewCellContentView>
                                     </collectionViewCell>
                                 </cells>
