@@ -7,178 +7,199 @@
 
 import UIKit
 import MapKit
+import CoreData
 
-class TravelLocationMapVC: UIViewController, MKMapViewDelegate, CLLocationManagerDelegate  {
+class TravelLocationMapVC: UIViewController {
 
-   
-    //MARK : Variables
-      @IBOutlet weak var mapView: MKMapView!
-      
-     // var locations = [StudentLocation]()
-      var annotations = [MKPointAnnotation]()
-  let locationManager = CLLocationManager()  // Here it is an object to get the user's location.
-    let newPin = MKPointAnnotation()
-
-//    let geocoder = CLGeocoder()
-//       var studentLocation: StudentLocation!
-//       var latitude:CLLocationDegrees!
-//       var longitude:CLLocationDegrees!
-      //MARK : LifeCycles
-      override func viewDidLoad() {
-          super.viewDidLoad()
-//          refreshStudentLocation()
-//        showLocationOnMap(placemark: <#MKPlacemark#>)
-//          mapView.delegate = self
-//        locationManager.delegate = self
-//           locationManager.desiredAccuracy = kCLLocationAccuracyBest
-//           locationManager.requestWhenInUseAuthorization()
-//           locationManager.requestLocation()
-           // To initialize locationManager (). Now it can give you the user's location.
-
-        // Ask for Authorisation from the User.
-        self.locationManager.requestAlwaysAuthorization()
-
-        // For use in foreground
-        self.locationManager.requestWhenInUseAuthorization()
-
-        if CLLocationManager.locationServicesEnabled() {
-            locationManager.delegate = self
-            locationManager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
-            locationManager.startUpdatingLocation()
-        }
-        mapView.delegate = self
-           mapView.showsUserLocation = true
-           // To initialize the map.
-        
-        showLocationOnMap()
-        
-        performSegue(withIdentifier: "GoToPhotoAlbum", sender: nil)
-      }
-      
-    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        mapView.removeAnnotation(newPin)
-
-        let location = locations.last! as CLLocation
-
-        let center = CLLocationCoordinate2D(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
-        let region = MKCoordinateRegion(center: center, span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01))
-
-        //set region on the map
-        mapView.setRegion(region, animated: true)
-
-        newPin.coordinate = location.coordinate
-        mapView.addAnnotation(newPin)
-
+    @IBOutlet weak var mapView: MKMapView!
+    
+    @IBOutlet weak var deleteButton: UIBarButtonItem!
+    
+    
+    //MARK : Actions
+    
+    
+    @IBAction func deleteBottonPressed(_ sender: Any) {
     }
-      //MARK : Functions
-      func refreshStudentLocation () {
-         // OMTClient.getStudentLocation(completion: handleGetStudentLocation(studentLocations:error:))
-          
-      }
-      
-//      func handleGetStudentLocation(studentLocations: [StudentLocation], error: Error?) {
-////          if error != nil {
-////              showFailure(message: error?.localizedDescription ?? "")
-////          } else {
-////              StudentInfoList.studentInfoList = studentLocations
-////              self.showLocationOnMap()
-////          }
-//      }
-      
-      func showFailure(message: String) {
-          let alertVC = UIAlertController(
-              title: "Error!", message: message, preferredStyle: .alert)
-          alertVC.addAction(UIAlertAction(title: "OK.", style: .default, handler: nil))
-          show(alertVC, sender: nil)
-      }
-      
-      func showLocationOnMap() {
-        //  refreshStudentLocation()
-//        //  for studentInfo in StudentInfoList.studentInfoList {
-//        let lat = CLLocationDegrees(annotation?.coordinate.latitude )
-//        let long = CLLocationDegrees(annotation?.coordinate.longitude )
-//              let coordinate = CLLocationCoordinate2D(latitude: lat, longitude: long)
 //
-//              let first = studentInfo.firstName
-//              let last = studentInfo.lastName
-//              let mediaURL = studentInfo.mediaURL
+//    @IBAction func longPressOnMap(_ sender: UILongPressGestureRecognizer) {
+//
+//    }
+//
+//}
+    
+
+    //MARK : Variables
+    //  @IBOutlet weak var mapView: MKMapView!
+    
+    
+     
+    var pins: [PinLocation] = []
+    
+    // string use as a key to get the mapRegion save into UserDefault
+    var persistedMapLocationKey: String = "persistedMapLocation"
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        // create a UILongPressGestureRecognizer to add it to the mapView
+        let gesture:UILongPressGestureRecognizer = UILongPressGestureRecognizer(target: self, action: #selector(dropPinGesture(gesture:)))
+        gesture.numberOfTouchesRequired = 1
         
-      
-      //  let selectedPin: MKPlacemark?
-
-         // cache the pin
-        // selectedPin = placemark
-              
-//              let annotation = MKPointAnnotation()
-//        let coordinate = locationManager.location?.coordinate
-        let annotation = MKPointAnnotation()
-        annotation.coordinate = CLLocationCoordinate2D(latitude: self.mapView.userLocation.coordinate.latitude, longitude: self.mapView.userLocation.coordinate.longitude)
-        self.mapView.addAnnotation(annotation)
-//        let lat = CLLocationDegrees(annotation?.coordinate.latitude )
-//        let long = CLLocationDegrees(annotation?.coordinate.longitude )
-//              let coordinate = CLLocationCoordinate2D(latitude: lat, longitude: long)
-//              let placeMark = MKPlacemark
-     //   annotation.coordinate = coordinate!
-              annotation.title = "Open Photo Virtual Tourist."
-            // annotation.subtitle = "Open Photo Virtual Tourist."
-              
-             //annotations.append(annotation)
-       //
-              self.mapView.addAnnotation(annotation)
-        // To initialize the bubble.
-        let span = MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
-            
-        //    MKCoordinateSpanMake(0.05, 0.05)
-        let region = MKCoordinateRegion(center: self.mapView.userLocation.coordinate, span: span)
-           mapView.setRegion(region, animated: true)   // To update the map with a center and a size.
-          
-          
-      }
-    
-
+//        // Generate long-press UIGestureRecognizer.
+//        let myLongPress: UILongPressGestureRecognizer = UILongPressGestureRecognizer()
+//        myLongPress.addTarget(self, action: #selector(dropPinGesture(gesture:))
 //
-//      //MARK : Actions
-//      @IBAction func updateLocation(_ sender: UIBarButtonItem) {
-//          OMTClient.updateLocation()
-//      }
-//
-//      @IBAction func logout(_ sender: UIBarButtonItem) {
-//          OMTClient.deleteSessionForLogOut()
-//          self.dismiss(animated: true, completion: nil)
-//      }
-      
-      // MARK: - MKMapViewDelegate
-      func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
-          let reuseId = "pin"
-          var pinView = mapView.dequeueReusableAnnotationView(withIdentifier: reuseId) as? MKPinAnnotationView
-          if pinView == nil {
-              pinView = MKPinAnnotationView(annotation: annotation, reuseIdentifier: reuseId)
-              pinView!.canShowCallout = true
-              pinView!.pinTintColor = .blue
-              pinView!.rightCalloutAccessoryView = UIButton(type: .detailDisclosure)
-          }
-          else {
-              pinView!.annotation = annotation
-          }
-          return pinView
-      }
-      
-      func mapView(_ mapView: MKMapView, annotationView view: MKAnnotationView, calloutAccessoryControlTapped control: UIControl) {
-          if control == view.rightCalloutAccessoryView {
-           // let pinView = view as! MKPinAnnotationView
-           // let annotation = pinView.annotation
-            //let location = annotation?.coordinate
-            // Do a segue here to the photo gallery page
-            let photoAlbumVC = storyboard!.instantiateViewController(withIdentifier: "GoToPhotoAlbum") as! PhotoAlbumVC
+//        // Added UIGestureRecognizer to MapView.
+//        mapView.addGestureRecognizer(myLongPress)
+        // add gesture to mapView
+        mapView.addGestureRecognizer(gesture)
+        mapView.delegate = self
+        // try to load the map region in UserDefault
+        loadPersistedMapRegion()
+        // fetch the pins in CoreData
+        fetchDataFromDataStore()
+    }
+    
+    func fetchDataFromDataStore(){
+        let fetchRequest:NSFetchRequest<PinLocation> = PinLocation.fetchRequest()
+        let sortDescriptor = NSSortDescriptor(key: "creationDate", ascending: true)
+        fetchRequest.sortDescriptors = [sortDescriptor]
+        if let result = try? DataController.shared.viewContext.fetch(fetchRequest){
+            pins = result
+            updateMapPins()
+        }
+    }
+    // display all the pins gotten from CoreDate
+    func updateMapPins(){
+        if !pins.isEmpty{
+            var annotations:[MKAnnotation] = []
+            for pin in pins{
+                let annotation = LocationPin(pin: pin)
+                annotation.coordinate = CLLocationCoordinate2D(latitude: pin.latitude, longitude: pin.longitude)
+                annotations.append(annotation)
+            }
+            mapView.addAnnotations(annotations)
+        }
+    }
+    // get call by long pressing the mapView
+    @objc func dropPinGesture(gesture:UILongPressGestureRecognizer){
+        // check if the gesture state begin
+        if gesture.state == .began {
+            let touch: CGPoint = gesture.location(in: self.mapView)
+            let coordinate: CLLocationCoordinate2D = self.mapView.convert(touch, toCoordinateFrom: self.mapView)
             
-            // Set the selected pin's location for MapView on the Photo Album View
-         //   if let locationManagedObject = getLocation(location!) {
-             //   photoAlbumVC.location = location
-               // photoAlbumViewController.dataController = dataController
-                self.navigationController?.pushViewController(photoAlbumVC, animated: true)
-              }
-          }
+            dropPin(coordinate: coordinate)
+        }
+    }
+    // create and place a pin in the mapView
+    func dropPin(coordinate:CLLocationCoordinate2D){
+        // create a pin and set the coordinate
+        let pin = PinLocation(context: DataController.shared.viewContext)
+        pin.latitude = coordinate.latitude
+        pin.longitude = coordinate.longitude
+        // create a TravelPin annotation with the created pin
+        let annotation = LocationPin(pin: pin)
+        annotation.coordinate = coordinate
+        // create a feedback to mimic Apple's Maps behavior
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+        
+        do{
+            // save the pin to CoreData
+            try DataController.shared.viewContext.save()
+            // add the new pin in the pins array
+            pins.append(pin)
+            // add the annotation to the mapView
+            mapView.addAnnotation(annotation)
+        }catch{
+            // present an alert if the pin couldn't be saved
+            presentVTAlert(title: "Error saving the location", message: error.localizedDescription)
+        }
+        
+    }
     
     
-      }
+    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
+        if segue.identifier == "photoAlbumSegue"{
+            let photoAlbumVC = segue.destination as! PhotoAlbumVC
+           // print(photoAlbumVC.pin ?? default value)
+            photoAlbumVC.pin = sender as? PinLocation
+            print("This is photoAlbumVC.pin in TravelLocationMapViewController : \(photoAlbumVC.pin!)")
+        }
+    }
+    
+
+}
+
+//MARK: - MKMapViewDelegate
+extension TravelLocationMapVC: MKMapViewDelegate{
+    
+    func mapViewDidChangeVisibleRegion(_ mapView: MKMapView) {
+        setPersistedMapRegion()
+    }
+    // save the map region in UserDefault
+    func setPersistedMapRegion(){
+        let mapRegion = [
+            "lat":mapView.centerCoordinate.latitude,
+            "long":mapView.centerCoordinate.longitude,
+            "latRegionDelta":mapView.region.span.latitudeDelta,
+            "longRegionDelta":mapView.region.span.longitudeDelta
+        ]
+        UserDefaults.standard.set(mapRegion, forKey: persistedMapLocationKey)
+    }
+    // load the persisted map region from UserDefault
+    func loadPersistedMapRegion(){
+        guard let mapRegion = UserDefaults.standard.dictionary(forKey: persistedMapLocationKey) else {return}
+        
+        let location = mapRegion as! [String:CLLocationDegrees]
+        let coordinate = CLLocationCoordinate2D(latitude: location["lat"]!, longitude: location["long"]!)
+        let span = MKCoordinateSpan(latitudeDelta: location["latRegionDelta"]!, longitudeDelta: location["longRegionDelta"]!)
+        
+        mapView.setRegion(MKCoordinateRegion(center: coordinate, span: span), animated: true)
+    }
+    
+    func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
+        guard annotation is LocationPin else {return nil}
+        
+        let reuseId = "pin"
+
+        var pinView = mapView.dequeueReusableAnnotationView(withIdentifier: reuseId) as? MKMarkerAnnotationView
+
+        if pinView == nil {
+            pinView = MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: reuseId)
+            pinView!.canShowCallout = false
+
+        } else {
+            pinView!.annotation = annotation
+        }
+
+        return pinView
+    }
+    
+    func mapView(_ mapView: MKMapView, didSelect view: MKAnnotationView) {
+        
+        let locationPin = view.annotation as! LocationPin
+        print(locationPin.pin)
+        performSegue(withIdentifier: "PhotoAlbumVC", sender: locationPin.pin)
+        
+        view.setSelected(false, animated: false)
+    }
+}
+
+extension UIViewController{
+    // this is a custom UIAlertController for convenience and readability
+    func presentVTAlert(title:String, message: String){
+        DispatchQueue.main.async {
+            let alertViewController = UIAlertController(title: title, message: message, preferredStyle: .alert)
+            let okAction = UIAlertAction(title: "OK", style: .default) { (action) in
+                alertViewController.dismiss(animated: true)
+            }
+            alertViewController.addAction(okAction)
+            self.present(alertViewController, animated: true)
+        }
+    }
+    
+}
+    
+    
 

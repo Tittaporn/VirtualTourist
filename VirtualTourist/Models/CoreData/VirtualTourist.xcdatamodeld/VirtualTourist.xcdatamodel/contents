@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="17511" systemVersion="19H15" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="">
+    <entity name="Photo" representedClassName="Photo" syncable="YES" codeGenerationType="class">
+        <attribute name="creationDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="id" optional="YES" attributeType="String"/>
+        <attribute name="image" optional="YES" attributeType="Binary"/>
+        <attribute name="url" optional="YES" attributeType="URI"/>
+        <relationship name="photoCollection" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PhotoCollection" inverseName="photos" inverseEntity="PhotoCollection"/>
+    </entity>
+    <entity name="PhotoCollection" representedClassName="PhotoCollection" syncable="YES" codeGenerationType="class">
+        <attribute name="creationDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="currentPage" optional="YES" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="totalPages" optional="YES" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
+        <relationship name="photos" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="Photo" inverseName="photoCollection" inverseEntity="Photo"/>
+        <relationship name="pin" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PinLocation" inverseName="collection" inverseEntity="PinLocation"/>
+    </entity>
+    <entity name="PinLocation" representedClassName="PinLocation" syncable="YES" codeGenerationType="class">
+        <attribute name="creationDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="latitude" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="longitude" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <relationship name="collection" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="PhotoCollection" inverseName="pin" inverseEntity="PhotoCollection"/>
+    </entity>
+    <elements>
+        <element name="Photo" positionX="22.9296875" positionY="-301.2265625" width="128" height="118"/>
+        <element name="PhotoCollection" positionX="-251.3203125" positionY="-292.52734375" width="111.8984375" height="118"/>
+        <element name="PinLocation" positionX="-509.82421875" positionY="-277.1875" width="128" height="103"/>
+    </elements>
+</model>

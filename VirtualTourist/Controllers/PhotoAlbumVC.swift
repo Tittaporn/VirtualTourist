@@ -7,26 +7,187 @@
 
 import UIKit
 import MapKit
+import CoreData
 
 class PhotoAlbumVC: UIViewController {
-
-    var location: CLLocationDegrees = 0.0
-        
+    
+    
+    @IBOutlet weak var mapView: MKMapView!
+    @IBOutlet weak var newCollectionButton: UIButton!
+    @IBOutlet weak var flowLayout: UICollectionViewFlowLayout!
+    
+    @IBOutlet weak var collectionView: UICollectionView!
+    private var photos = [Photo]()
+    
+    var pin: PinLocation!
+    //var timer: Timer!
+    
     override func viewDidLoad() {
         super.viewDidLoad()
-
-        // Do any additional setup after loading the view.
+        print("pin in viewDidLoad in PhotoAlbumVC : \(pin)")
+        newCollectionButton.isEnabled = false
+        configureCollectionView()
+        showLocation()
+        checkPinPhotoCollection()
+       
     }
     
-
-    /*
-    // MARK: - Navigation
-
-    // In a storyboard-based application, you will often want to do a little preparation before navigation
-    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-        // Get the new view controller using segue.destination.
-        // Pass the selected object to the new view controller.
+    // configure collectionView's flowLayout
+    func configureCollectionView() {
+        collectionView.dataSource = self
+        collectionView.delegate = self
+        let width = view.bounds.width
+        let padding: CGFloat = 12
+        let minimumSpacing: CGFloat = 10
+        let availableWidth = width - (padding * 2) - (minimumSpacing * 2)
+        let itemWidth = availableWidth / 3
+        
+        flowLayout.sectionInset = UIEdgeInsets(top: padding, left: padding, bottom: padding, right: padding)
+        flowLayout.itemSize = CGSize(width: itemWidth, height: itemWidth)
     }
-    */
-
+    
+    //add pin on the mapView
+    func showLocation() {
+        let annotation = LocationPin(pin: pin)
+        annotation.coordinate = CLLocationCoordinate2D(latitude: pin.latitude, longitude: pin.longitude)
+        mapView.isUserInteractionEnabled = false
+        mapView.addAnnotation(annotation)
+        
+    }
+    
+    func checkPinPhotoCollection() {
+        guard let pinCollection = pin.collection else {return}
+        //if pin is empty, download photos from Flickr, or get all photos from coredata
+        if pinCollection.isEmpty {
+            pinCollection.currentPage = 1
+            dowloadPhotos()
+        } else {
+            let fetchRequest: NSFetchRequest<Photo> = Photo.fetchRequest()
+            let predicate = NSPredicate(format: "photoCollection == %@", pinCollection)
+            let sortDescriptor = NSSortDescriptor(key: "creationDate", ascending: true)
+            fetchRequest.sortDescriptors = [sortDescriptor]
+            fetchRequest.predicate = predicate
+            if let result = try? DataController.shared.viewContext.fetch(fetchRequest) {
+                photos = result
+                collectionView.reloadData()
+                if pinCollection.totalPages > 1 {
+                    newCollectionButton.isEnabled = true
+                }
+            }
+        }
+    }
+    
+    func dowloadPhotos(fromPage page: Int = 1) {
+        FlickrClient.shared.seachPhotoFromLocation(lat: pin.latitude, long: pin.longitude, page: page) {(collection, error) in
+            // guard let self = self else {return}
+            if error != nil {
+                if let flickrError = error as? FlickrError {
+                    self.presentVTAlert(title: flickrError.message, message: flickrError.errorDescription)
+                } else {
+                    self.collectionView.reloadData()
+                }
+            } else {
+                guard let photoCollection = collection else {return}
+                // set totalPages to the collection
+                self.pin.collection?.totalPages = Int16(photoCollection.pages)
+                let photos = photoCollection.photo
+                if photos.isEmpty {
+                    self.presentVTAlert(title: "No Photos!", message: "Could not find photos for this Location.")
+                } else {
+                    for photoResponse in photos {
+                        let photo = Photo(context: DataController.shared.viewContext)
+                        photo.id = photoResponse.id
+                        guard let url = URL(string: photoResponse.url) else {return}
+                        photo.url = url
+                        photo.photoCollection = self.pin.collection
+                        self.photos.append(photo)
+                    }
+                    self.collectionView.reloadData()
+                    do {
+                        try DataController.shared.viewContext.save()
+                    } catch {
+                        print(error.localizedDescription)
+                    }
+                }
+                
+                //enable newCollectionButton if the collection has more than 1 page
+                if let totalPages = self.pin.collection?.totalPages {
+                    if totalPages > 1 {
+                        self.newCollectionButton.isEnabled = true
+                    }
+                }
+            }
+        }
+    }
+    
+    //creat a zoom animation to show the pin location
+    func zoomToLocation() {
+        let coodinate = CLLocationCoordinate2D(latitude: pin.latitude, longitude: pin.longitude)
+        let distance: CLLocationDistance = 50_000
+        let mapRegion = MKCoordinateRegion(center: coodinate, latitudinalMeters: distance, longitudinalMeters: distance)
+        mapView.setRegion(mapRegion, animated: true)
+    }
+    
+    
+    
+    @IBAction func newCollectionTapped(_ sender: Any) {
+        newCollectionButton.isEnabled = false
+        
+        //delete all photos
+        for photoToDelete in photos{
+            DataController.shared.viewContext.delete(photoToDelete)
+        }
+        
+        do {
+            try DataController.shared.viewContext.save()
+        } catch {
+            print("Error saving the Photos context: \(error.localizedDescription)")
+        }
+        
+        photos = []
+        collectionView.reloadData()
+        guard let photoCollection = pin.collection else {return}
+        let currentPage: Int = Int(photoCollection.currentPage)
+        let totalPages: Int = Int(photoCollection.totalPages)
+        var randomPage: Int
+        repeat {
+            randomPage = Int.random(in: 1...totalPages)
+        } while randomPage == currentPage
+        photoCollection.currentPage = Int16(randomPage)
+        dowloadPhotos(fromPage: randomPage)
+    }
+    
 }
+
+extension PhotoAlbumVC: UICollectionViewDataSource, UICollectionViewDelegate {
+    func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
+        return photos.count
+    }
+    
+    func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
+        let photo = photos[indexPath.row]
+        let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "photoCollectionCell", for: indexPath) as! PhotoCollectionViewCell
+        cell.setImage(photo: photo)
+        return cell
+    }
+    
+    func numberOfSections(in collectionView: UICollectionView) -> Int {
+        return 1
+    }
+    
+    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        let photToDelete = photos[indexPath.row]
+        DataController.shared.viewContext.delete(photToDelete)
+        do {
+            try DataController.shared.viewContext.save()
+            photos.remove(at: indexPath.row)
+            collectionView.deleteItems(at: [indexPath])
+        } catch {
+            print("Error saving the context: \(error.localizedDescription)")
+        }
+    }
+    
+}
+
+
+
