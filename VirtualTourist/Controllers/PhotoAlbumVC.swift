@@ -11,52 +11,64 @@ import CoreData
 
 class PhotoAlbumVC: UIViewController {
     
+    //MARK : Variables and Outlets
     
     @IBOutlet weak var mapView: MKMapView!
     @IBOutlet weak var newCollectionButton: UIButton!
     @IBOutlet weak var flowLayout: UICollectionViewFlowLayout!
-    
     @IBOutlet weak var collectionView: UICollectionView!
-    private var photos = [Photo]()
     
-    var pin: PinLocation!
-    //var timer: Timer!
+    private var photos = [Photo]()
+    var pin: PinLocation?
+    
+    //MARK : LifeCycle
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        print("pin in viewDidLoad in PhotoAlbumVC : \(pin)")
         newCollectionButton.isEnabled = false
         configureCollectionView()
-        showLocation()
-        checkPinPhotoCollection()
-       
+        configureMapView()
+        addPinOnLocation()
+        checkPhotosOnLocation()
     }
+    
+    //MARK : Functions
     
     // configure collectionView's flowLayout
     func configureCollectionView() {
         collectionView.dataSource = self
         collectionView.delegate = self
-        let width = view.bounds.width
-        let padding: CGFloat = 12
-        let minimumSpacing: CGFloat = 10
-        let availableWidth = width - (padding * 2) - (minimumSpacing * 2)
-        let itemWidth = availableWidth / 3
-        
-        flowLayout.sectionInset = UIEdgeInsets(top: padding, left: padding, bottom: padding, right: padding)
-        flowLayout.itemSize = CGSize(width: itemWidth, height: itemWidth)
+        collectionView.allowsMultipleSelection = true
+        if let flowLayout = collectionView.collectionViewLayout as? UICollectionViewFlowLayout {
+            let space: CGFloat = 3.0
+            let dimension = (view.frame.size.width - (2 * space)) / 3.0
+            flowLayout.minimumInteritemSpacing = space
+            flowLayout.minimumLineSpacing = space
+            flowLayout.itemSize = CGSize(width: dimension, height: dimension)
+        }
+    }
+    
+    // configure mapView
+    func configureMapView() {
+        mapView.delegate = self
+        let span = MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
+        let coordinate = CLLocationCoordinate2D(latitude: pin!.latitude, longitude: pin!.longitude)
+        let region = MKCoordinateRegion(center: coordinate, span: span)
+        mapView.setRegion(region, animated: true)
+        mapView.addAnnotation(LocationPin(pin: pin!))
     }
     
     //add pin on the mapView
-    func showLocation() {
-        let annotation = LocationPin(pin: pin)
-        annotation.coordinate = CLLocationCoordinate2D(latitude: pin.latitude, longitude: pin.longitude)
+    func addPinOnLocation() {
+        let annotation = LocationPin(pin: pin!)
+        annotation.coordinate = CLLocationCoordinate2D(latitude: pin!.latitude, longitude: pin!.longitude)
         mapView.isUserInteractionEnabled = false
         mapView.addAnnotation(annotation)
-        
     }
     
-    func checkPinPhotoCollection() {
-        guard let pinCollection = pin.collection else {return}
+    //check if the location on the pin has photoCollection.
+    func checkPhotosOnLocation() {
+        guard let pinCollection = pin!.collection else {return}
         //if pin is empty, download photos from Flickr, or get all photos from coredata
         if pinCollection.isEmpty {
             pinCollection.currentPage = 1
@@ -78,28 +90,27 @@ class PhotoAlbumVC: UIViewController {
     }
     
     func dowloadPhotos(fromPage page: Int = 1) {
-        FlickrClient.shared.seachPhotoFromLocation(lat: pin.latitude, long: pin.longitude, page: page) {(collection, error) in
-            // guard let self = self else {return}
+        FlickrClient.shared.seachPhotoFromLocation(lat: pin!.latitude, long: pin!.longitude, page: page) {(collection, error) in
             if error != nil {
                 if let flickrError = error as? FlickrError {
-                    self.presentVTAlert(title: flickrError.message, message: flickrError.errorDescription)
+                    self.vcAlertShow(title: flickrError.message, message: (flickrError.localizedDescription))
                 } else {
                     self.collectionView.reloadData()
                 }
             } else {
                 guard let photoCollection = collection else {return}
                 // set totalPages to the collection
-                self.pin.collection?.totalPages = Int16(photoCollection.pages)
+                self.pin!.collection?.totalPages = Int16(photoCollection.pages)
                 let photos = photoCollection.photo
                 if photos.isEmpty {
-                    self.presentVTAlert(title: "No Photos!", message: "Could not find photos for this Location.")
+                    self.vcAlertShow(title: "No Photos!", message: "Could not find photos for this Location.")
                 } else {
                     for photoResponse in photos {
                         let photo = Photo(context: DataController.shared.viewContext)
                         photo.id = photoResponse.id
                         guard let url = URL(string: photoResponse.url) else {return}
                         photo.url = url
-                        photo.photoCollection = self.pin.collection
+                        photo.photoCollection = self.pin!.collection
                         self.photos.append(photo)
                     }
                     self.collectionView.reloadData()
@@ -109,9 +120,8 @@ class PhotoAlbumVC: UIViewController {
                         print(error.localizedDescription)
                     }
                 }
-                
                 //enable newCollectionButton if the collection has more than 1 page
-                if let totalPages = self.pin.collection?.totalPages {
+                if let totalPages = self.pin!.collection?.totalPages {
                     if totalPages > 1 {
                         self.newCollectionButton.isEnabled = true
                     }
@@ -120,33 +130,23 @@ class PhotoAlbumVC: UIViewController {
         }
     }
     
-    //creat a zoom animation to show the pin location
-    func zoomToLocation() {
-        let coodinate = CLLocationCoordinate2D(latitude: pin.latitude, longitude: pin.longitude)
-        let distance: CLLocationDistance = 50_000
-        let mapRegion = MKCoordinateRegion(center: coodinate, latitudinalMeters: distance, longitudinalMeters: distance)
-        mapView.setRegion(mapRegion, animated: true)
-    }
-    
-    
+    //MARK : Action
     
     @IBAction func newCollectionTapped(_ sender: Any) {
         newCollectionButton.isEnabled = false
-        
         //delete all photos
         for photoToDelete in photos{
             DataController.shared.viewContext.delete(photoToDelete)
         }
-        
         do {
             try DataController.shared.viewContext.save()
         } catch {
             print("Error saving the Photos context: \(error.localizedDescription)")
         }
-        
+        //after delete photos, search for the new photos.
         photos = []
         collectionView.reloadData()
-        guard let photoCollection = pin.collection else {return}
+        guard let photoCollection = pin!.collection else {return}
         let currentPage: Int = Int(photoCollection.currentPage)
         let totalPages: Int = Int(photoCollection.totalPages)
         var randomPage: Int
@@ -159,7 +159,10 @@ class PhotoAlbumVC: UIViewController {
     
 }
 
+//MARK : Extensions for UICollectionViewDataSource, UICollectionViewDelegate
+
 extension PhotoAlbumVC: UICollectionViewDataSource, UICollectionViewDelegate {
+    
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
         return photos.count
     }
@@ -186,8 +189,34 @@ extension PhotoAlbumVC: UICollectionViewDataSource, UICollectionViewDelegate {
             print("Error saving the context: \(error.localizedDescription)")
         }
     }
-    
 }
 
+//MARK : Extension for MKMapViewDelegate
 
-
+extension PhotoAlbumVC: MKMapViewDelegate {
+    
+    func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
+        let resusedPinId = "pin"
+        var pinView = mapView.dequeueReusableAnnotationView(withIdentifier: resusedPinId) as? MKPinAnnotationView
+        
+        let pinAnnotation = annotation as! LocationPin
+        
+        let geoPos = CLLocation(latitude: annotation.coordinate.latitude, longitude: annotation.coordinate.longitude)
+        
+        CLGeocoder().reverseGeocodeLocation(geoPos) { (placemarks, error) in
+            guard let placemark = placemarks?.first else { return }
+            pinAnnotation.title = placemark.name ?? "Not Known."
+            pinAnnotation.subtitle =  placemark.country
+        }
+        if pinView == nil {
+            pinView = MKPinAnnotationView(annotation: annotation, reuseIdentifier: resusedPinId)
+            pinView!.canShowCallout = true
+            pinView!.pinTintColor = .blue
+        } else {
+            pinView!.annotation = annotation
+        }
+        pinView?.isSelected = true
+        pinView?.isUserInteractionEnabled = false
+        return pinView
+    }
+}

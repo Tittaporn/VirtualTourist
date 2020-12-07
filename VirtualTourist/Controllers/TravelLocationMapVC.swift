@@ -9,186 +9,194 @@ import UIKit
 import MapKit
 import CoreData
 
-class TravelLocationMapVC: UIViewController {
-
-    @IBOutlet weak var mapView: MKMapView!
+class TravelLocationMapVC: UIViewController, NSFetchedResultsControllerDelegate {
     
+    //MARK : variables and Outlet
+    
+    @IBOutlet weak var mapView: MKMapView!
     @IBOutlet weak var deleteButton: UIBarButtonItem!
     
+    let userDefaultRegionKey: String = "saveRegion"
+    var pin: PinLocation?
+    var locationAnnotation: MKPointAnnotation!
+    var fetchedResultsController: NSFetchedResultsController<PinLocation>!
+    
+    //MARK : LifeCycles
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        mapView.delegate = self
+        getPersistedLocation()
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        deleteButton.isEnabled = false
+        reloadLocation()
+    }
     
     //MARK : Actions
     
-    
-    @IBAction func deleteBottonPressed(_ sender: Any) {
-    }
-//
-//    @IBAction func longPressOnMap(_ sender: UILongPressGestureRecognizer) {
-//
-//    }
-//
-//}
-    
-
-    //MARK : Variables
-    //  @IBOutlet weak var mapView: MKMapView!
-    
-    
-     
-    var pins: [PinLocation] = []
-    
-    // string use as a key to get the mapRegion save into UserDefault
-    var persistedMapLocationKey: String = "persistedMapLocation"
-
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        // create a UILongPressGestureRecognizer to add it to the mapView
-        let gesture:UILongPressGestureRecognizer = UILongPressGestureRecognizer(target: self, action: #selector(dropPinGesture(gesture:)))
-        gesture.numberOfTouchesRequired = 1
-        
-//        // Generate long-press UIGestureRecognizer.
-//        let myLongPress: UILongPressGestureRecognizer = UILongPressGestureRecognizer()
-//        myLongPress.addTarget(self, action: #selector(dropPinGesture(gesture:))
-//
-//        // Added UIGestureRecognizer to MapView.
-//        mapView.addGestureRecognizer(myLongPress)
-        // add gesture to mapView
-        mapView.addGestureRecognizer(gesture)
-        mapView.delegate = self
-        // try to load the map region in UserDefault
-        loadPersistedMapRegion()
-        // fetch the pins in CoreData
-        fetchDataFromDataStore()
-    }
-    
-    func fetchDataFromDataStore(){
-        let fetchRequest:NSFetchRequest<PinLocation> = PinLocation.fetchRequest()
-        let sortDescriptor = NSSortDescriptor(key: "creationDate", ascending: true)
-        fetchRequest.sortDescriptors = [sortDescriptor]
-        if let result = try? DataController.shared.viewContext.fetch(fetchRequest){
-            pins = result
-            updateMapPins()
-        }
-    }
-    // display all the pins gotten from CoreDate
-    func updateMapPins(){
-        if !pins.isEmpty{
-            var annotations:[MKAnnotation] = []
-            for pin in pins{
-                let annotation = LocationPin(pin: pin)
-                annotation.coordinate = CLLocationCoordinate2D(latitude: pin.latitude, longitude: pin.longitude)
-                annotations.append(annotation)
+    @IBAction func deleteButtonPressed(_ sender: Any) {
+        do {
+            if let annotation = self.locationAnnotation {
+                let predicate = NSPredicate(format: "longitude = %@ AND latitude = %@", argumentArray: [annotation.coordinate.longitude, annotation.coordinate.latitude])
+                let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: "PinLocation")
+                fetchRequest.predicate = predicate
+                let request = NSBatchDeleteRequest(fetchRequest: fetchRequest)
+                try DataController.shared.viewContext.execute(request)
+                mapView.removeAnnotation(annotation)
+                deleteButton.isEnabled = false
             }
-            mapView.addAnnotations(annotations)
+        } catch {
+            print("Error deleteButtonPressed: \(error.localizedDescription)")
         }
     }
-    // get call by long pressing the mapView
-    @objc func dropPinGesture(gesture:UILongPressGestureRecognizer){
-        // check if the gesture state begin
-        if gesture.state == .began {
-            let touch: CGPoint = gesture.location(in: self.mapView)
-            let coordinate: CLLocationCoordinate2D = self.mapView.convert(touch, toCoordinateFrom: self.mapView)
-            
-            dropPin(coordinate: coordinate)
-        }
-    }
-    // create and place a pin in the mapView
-    func dropPin(coordinate:CLLocationCoordinate2D){
-        // create a pin and set the coordinate
-        let pin = PinLocation(context: DataController.shared.viewContext)
-        pin.latitude = coordinate.latitude
-        pin.longitude = coordinate.longitude
-        // create a TravelPin annotation with the created pin
-        let annotation = LocationPin(pin: pin)
-        annotation.coordinate = coordinate
-        // create a feedback to mimic Apple's Maps behavior
-        let generator = UIImpactFeedbackGenerator(style: .medium)
-        generator.impactOccurred()
-        
-        do{
-            // save the pin to CoreData
-            try DataController.shared.viewContext.save()
-            // add the new pin in the pins array
-            pins.append(pin)
-            // add the annotation to the mapView
-            mapView.addAnnotation(annotation)
-        }catch{
-            // present an alert if the pin couldn't be saved
-            presentVTAlert(title: "Error saving the location", message: error.localizedDescription)
+    
+    @IBAction func longPressOnMap(_ sender: UILongPressGestureRecognizer) {
+        if sender.state == .ended {
+            let locationCoordinate = mapView.convert(sender.location(in: mapView), toCoordinateFrom: mapView)
+            userGeoCoordination(from: locationCoordinate)
         }
         
     }
     
+    //MARK : Fuctions
+    
+    func userGeoCoordination(from coordinate: CLLocationCoordinate2D) {
+        let geoPos = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+        let annotation = MKPointAnnotation()
+        CLGeocoder().reverseGeocodeLocation(geoPos) {(placemarks, error) in
+            guard let placemark = placemarks?.first else {return}
+            annotation.title = placemark.name ?? "Name Not Known !!"
+            annotation.subtitle = placemark.country
+            annotation.coordinate = coordinate
+            self.locationForPin(annotation)
+        }
+    }
+    
+    func locationForPin(_ annotation: MKPointAnnotation) {
+        let location = PinLocation(context: DataController.shared.viewContext)
+        location.creationDate = Date()
+        location.latitude = annotation.coordinate.latitude
+        location.longitude = annotation.coordinate.longitude
+        try? DataController.shared.viewContext.save()
+        let locationPin = LocationPin(pin: location)
+        self.mapView.addAnnotation(locationPin)
+    }
+    
+    func reloadLocation() {
+        self.mapView.removeAnnotations(self.mapView.annotations)
+        let request: NSFetchRequest<PinLocation> = PinLocation.fetchRequest()
+        let sortDescriptor = NSSortDescriptor(key: "creationDate", ascending: false)
+        request.sortDescriptors = [sortDescriptor]
+        DataController.shared.viewContext.perform {
+            do {
+                let pins = try DataController.shared.viewContext.fetch(request)
+                self.mapView.addAnnotations(pins.map {pin in LocationPin(pin: pin)})
+            } catch {
+                print("Error fetching Pins: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    func saveUserRegion() {
+        let mapRegion = [
+            "latitude" : mapView.region.center.latitude,
+            "longitude" : mapView.region.center.longitude,
+            "latitudeDelta" : mapView.region.span.latitudeDelta,
+            "longitudeDelta" : mapView.region.span.longitudeDelta
+        ]
+        UserDefaults.standard.set(mapRegion, forKey: userDefaultRegionKey)
+    }
+    
+    func getPersistedLocation() {
+        if let mapRegion = UserDefaults.standard.dictionary(forKey: userDefaultRegionKey) {
+            let location = mapRegion as! [String: CLLocationDegrees]
+            let center = CLLocationCoordinate2D(latitude: location["latitude"]!, longitude: location["longitude"]!)
+            let span = MKCoordinateSpan(latitudeDelta: location["latitudeDelta"]!, longitudeDelta: location["longitudeDelta"]!)
+            mapView.setRegion(MKCoordinateRegion(center: center, span: span), animated: true)
+        }
+    }
+    
+    //MARK : Segue to PhotoAblumVC
     
     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-        if segue.identifier == "photoAlbumSegue"{
-            let photoAlbumVC = segue.destination as! PhotoAlbumVC
-           // print(photoAlbumVC.pin ?? default value)
-            photoAlbumVC.pin = sender as? PinLocation
-            print("This is photoAlbumVC.pin in TravelLocationMapViewController : \(photoAlbumVC.pin!)")
-        }
+        guard let photoAblumVC = segue.destination as? PhotoAlbumVC else {return}
+        let locationPin: LocationPin = sender as! LocationPin
+        photoAblumVC.pin = locationPin.pin
     }
-    
-
 }
 
-//MARK: - MKMapViewDelegate
-extension TravelLocationMapVC: MKMapViewDelegate{
+//MARK : Extension for MKMapViewDelegate
+
+extension TravelLocationMapVC: MKMapViewDelegate {
     
+    //When mapView changed, update and save user last region.
     func mapViewDidChangeVisibleRegion(_ mapView: MKMapView) {
-        setPersistedMapRegion()
-    }
-    // save the map region in UserDefault
-    func setPersistedMapRegion(){
-        let mapRegion = [
-            "lat":mapView.centerCoordinate.latitude,
-            "long":mapView.centerCoordinate.longitude,
-            "latRegionDelta":mapView.region.span.latitudeDelta,
-            "longRegionDelta":mapView.region.span.longitudeDelta
-        ]
-        UserDefaults.standard.set(mapRegion, forKey: persistedMapLocationKey)
-    }
-    // load the persisted map region from UserDefault
-    func loadPersistedMapRegion(){
-        guard let mapRegion = UserDefaults.standard.dictionary(forKey: persistedMapLocationKey) else {return}
-        
-        let location = mapRegion as! [String:CLLocationDegrees]
-        let coordinate = CLLocationCoordinate2D(latitude: location["lat"]!, longitude: location["long"]!)
-        let span = MKCoordinateSpan(latitudeDelta: location["latRegionDelta"]!, longitudeDelta: location["longRegionDelta"]!)
-        
-        mapView.setRegion(MKCoordinateRegion(center: coordinate, span: span), animated: true)
+        self.saveUserRegion()
     }
     
+    //When mapView selected, set locationAnnotation
+    func mapView(_ mapView: MKMapView, didSelect view: MKAnnotationView) {
+        guard let _ = view.annotation else {
+            return
+        }
+        self.locationAnnotation = view.annotation as? MKPointAnnotation
+        deleteButton.isEnabled = true
+    }
+    
+    //Using a reused pin to show on the mapView
     func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
-        guard annotation is LocationPin else {return nil}
-        
         let reuseId = "pin"
-
-        var pinView = mapView.dequeueReusableAnnotationView(withIdentifier: reuseId) as? MKMarkerAnnotationView
-
+        var pinView = mapView.dequeueReusableAnnotationView(withIdentifier: reuseId) as? MKPinAnnotationView
+        let pinAnnotation = annotation as! LocationPin
+        
+        let geoPos = CLLocation(latitude: annotation.coordinate.latitude, longitude: annotation.coordinate.longitude)
+        CLGeocoder().reverseGeocodeLocation(geoPos) { (placemarks, error) in
+            guard let placemark = placemarks?.first else { return }
+            pinAnnotation.title = "Open Photos Virtual Tourist."
+            pinAnnotation.subtitle =  placemark.country
+        }
         if pinView == nil {
-            pinView = MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: reuseId)
-            pinView!.canShowCallout = false
-
+            pinView = MKPinAnnotationView(annotation: annotation, reuseIdentifier: reuseId)
+            pinView!.canShowCallout = true
+            pinView!.pinTintColor = .blue
+            pinView!.rightCalloutAccessoryView = UIButton(type: .detailDisclosure)
         } else {
             pinView!.annotation = annotation
         }
-
         return pinView
     }
     
-    func mapView(_ mapView: MKMapView, didSelect view: MKAnnotationView) {
-        
-        let locationPin = view.annotation as! LocationPin
-        print(locationPin.pin)
-        performSegue(withIdentifier: "PhotoAlbumVC", sender: locationPin.pin)
-        
-        view.setSelected(false, animated: false)
+    //When callout on Pit, save LocationPin and performSegue to PhotoAblumVC
+    func mapView(_ mapView: MKMapView, annotationView view: MKAnnotationView, calloutAccessoryControlTapped control: UIControl) {
+        mapView.deselectAnnotation(view.annotation, animated: false)
+        guard let _ = view.annotation else {return}
+        do {
+            if let annotation = view.annotation as? MKPointAnnotation{
+                let predicate = NSPredicate(format: "longitude = %@ AND latitude = %@", argumentArray: [annotation.coordinate.longitude, annotation.coordinate.latitude])
+                let sortDecriptor = NSSortDescriptor(key: "creationDate", ascending: false)
+                let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: "PinLocation")
+                fetchRequest.predicate = predicate
+                fetchRequest.sortDescriptors = [sortDecriptor]
+                guard let location = (try DataController.shared.viewContext.fetch(fetchRequest) as! [PinLocation]).first else {
+                    return
+                }
+                let annotationPin = LocationPin(pin: location)
+                self.performSegue(withIdentifier: "gotoPhotoAblumSegue", sender: annotationPin)
+            }
+        } catch {
+            print("Error annotationView in TravelLocationMapVC : \(error.localizedDescription)")
+        }
     }
 }
 
+//MARK : Extension for UIViewCntroller
+
 extension UIViewController{
     // this is a custom UIAlertController for convenience and readability
-    func presentVTAlert(title:String, message: String){
+    func vcAlertShow(title:String, message: String){
         DispatchQueue.main.async {
             let alertViewController = UIAlertController(title: title, message: message, preferredStyle: .alert)
             let okAction = UIAlertAction(title: "OK", style: .default) { (action) in
@@ -200,6 +208,4 @@ extension UIViewController{
     }
     
 }
-    
-    
 

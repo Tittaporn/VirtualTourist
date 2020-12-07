@@ -39,7 +39,6 @@ extension DataController{
     func autoSaveViewContext(interval:TimeInterval = 10){
         guard interval > 0 else {return}
         if viewContext.hasChanges{
-           // viewContext.saveOrRollback()
         }
         
         DispatchQueue.main.asyncAfter(deadline: .now() + interval) { [weak self] in

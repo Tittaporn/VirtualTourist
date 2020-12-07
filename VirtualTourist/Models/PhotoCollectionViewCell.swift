@@ -20,7 +20,7 @@ class PhotoCollectionViewCell: UICollectionViewCell {
         guard let url = photo.url else {return}
         imageURLPath = url
         FlickrClient.shared.getPhotoImage(url: url) { [weak self] (image) in
-    
+            
             guard let self = self else {return}
             if self.imageURLPath == url{
                 guard let imageUnwrapped = image else {return}
@@ -34,5 +34,5 @@ class PhotoCollectionViewCell: UICollectionViewCell {
             
         }
     }
-
+    
 }

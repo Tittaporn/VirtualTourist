@@ -15,18 +15,17 @@ class FlickrClient {
     enum Endpoints {
         static let baseForsearch = "https://www.flickr.com/services/rest/?method="
         static let apiKeyParam = "&api_key=\(FlickrClient.apiKey)"
-      
+        
         case searchPhotos
-        // case photoImage(String, String, String)
         
         var stringValue: String {
             switch self {
             case .searchPhotos:
-                return Endpoints.baseForsearch + "flickr.photo.search" + Endpoints.apiKeyParam + "&nojsoncallback=1&format=json&per_page=50&extras=url_m"
+                return Endpoints.baseForsearch + "flickr.photos.search" + Endpoints.apiKeyParam + "&nojsoncallback=1&format=json&per_page=50&extras=url_m"
             }
         }
     }
- 
+    
     func seachPhotoFromLocation(lat: Double, long: Double, page: Int = 1, completion: @escaping (FlickPhotosResponse?, Error?) -> Void) {
         guard let url = URL(string: Endpoints.searchPhotos.stringValue + "&lat=" + String(lat) + "&lon=" + String(long) + "&page=" + String(page)) else {return}
         let task = URLSession.shared.dataTask(with: url) { (data, response, error) in
@@ -61,14 +60,14 @@ class FlickrClient {
     func getPhotoImage(url:URL, completion: @escaping (UIImage?)->Void){
         let task = URLSession.shared.dataTask(with: url) { (data, response, error) in
             guard error == nil,
-                let response = response as? HTTPURLResponse, response.statusCode == 200,
-                let data = data,
-                let image = UIImage(data: data) else{
-                    DispatchQueue.main.async {
-                        completion(nil)
-                    }
-                    return
+                  let response = response as? HTTPURLResponse, response.statusCode == 200,
+                  let data = data,
+                  let image = UIImage(data: data) else{
+                DispatchQueue.main.async {
+                    completion(nil)
                 }
+                return
+            }
             
             DispatchQueue.main.async {
                 completion(image)

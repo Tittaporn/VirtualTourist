@@ -7,15 +7,13 @@
 
 import Foundation
 import MapKit
-// custom MKAnnotation that store a Pin
-class LocationPin: NSObject, MKAnnotation {
-    var coordinate: CLLocationCoordinate2D
+
+class LocationPin: MKPointAnnotation {
     var pin: PinLocation
     
-    init(pin: PinLocation) {
+    init(pin: PinLocation){
         self.pin = pin
-        coordinate = CLLocationCoordinate2D(latitude: pin.latitude, longitude: pin.latitude)
         super.init()
-        
+        self.coordinate = CLLocationCoordinate2D(latitude: pin.latitude, longitude: pin.longitude)
     }
 }

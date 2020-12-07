@@ -18,12 +18,3 @@ struct FlickrPhotoResponse: Codable {
         case url = "url_m"
     }
 }
-    //    let id: String
-//    let owener: String
-//    let secret: String
-//    let server: String
-//    let title: String
-//    let ispublic: Int
-//    let isfriend: Int
-//    let isfamily: Int
-//}
